@@ -22,23 +22,31 @@ param (
 
     [Parameter(Mandatory=$true)]
     [string]$recommendedActions     
+)
 
- )
+# Prompt the user for the necessary values
+$indicatorType = Read-Host -Prompt 'Enter the Indicator Type (FileSha1, FileSha256, IpAddress, DomainName, Url)'
+$indicatorValue = Read-Host -Prompt 'Enter the Indicator Value'
+$action = Read-Host -Prompt 'Enter the Action (Alert, AlertAndBlock, Allowed)' -Default 'Alert'
+$title = Read-Host -Prompt 'Enter the Title'
+$severity = Read-Host -Prompt 'Enter the Severity (Informational, Low, Medium, High)' -Default 'Informational'
+$description = Read-Host -Prompt 'Enter the Description'
+$recommendedActions = Read-Host -Prompt 'Enter the Recommended Actions'
 
-$token = .\Get-Token.ps1                              #Execute Get-Token.ps1 script to get the authorization token
+$token = .\Get-Token.ps1                              # Execute Get-Token.ps1 script to get the authorization token
 
 $url = "https://api.securitycenter.windows.com/api/indicators"
 
 $body = 
 @{
-	indicatorValue = $indicatorValue        
+    indicatorValue = $indicatorValue        
     indicatorType = $indicatorType 
     action = $action
     title = $title 
     severity = $severity	
     description = $description 
     recommendedActions =  $recommendedActions 
- }
+}
  
 $headers = @{ 
     'Content-Type' = 'application/json'
@@ -48,11 +56,11 @@ $headers = @{
 
 $response = Invoke-WebRequest -Method Post -Uri $url -Body ($body | ConvertTo-Json) -Headers $headers -ErrorAction Stop
 
-if($response.StatusCode -eq 200)   #chcek the response status code
+if($response.StatusCode -eq 200)   # Check the response status code
 {
-    return $true        #update ended successfully
+    return $true        # Update ended successfully
 }
 else
 {
-    return $false       #update failed
+    return $false       # Update failed
 }
