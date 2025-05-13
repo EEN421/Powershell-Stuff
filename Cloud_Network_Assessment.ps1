@@ -1,6 +1,21 @@
-# Azure Network Inventory Script (Combined CSV, Zipped)
-# Author: Ian Hanley (via ChatGPT)
-# Prompts for subscription, scans all RGs, outputs one combined CSV file and zip
+# Azure Network Inventory Script 
+# Author: Ian Hanley 
+#
+# Description:
+#
+# The Cloud_Network_Assessment.ps1 script is a PowerShell-based network discovery and reporting tool designed for Azure environments.
+# It automates the collection of critical network configuration data across an Azure subscription, including Virtual Networks,
+# Network Security Groups (NSGs), Route Tables, Virtual Network Gateways, and Peering connections.
+#
+#This script is especially useful for cloud engineers, security architects, and consultants conducting network assessments, security reviews,
+# or documentation efforts. It outputs a set of CSV files for easy analysis and reporting, streamlining the visibility of Azure network topology and security posture.
+#
+# By running this script, you gain a comprehensive snapshot of your Azure network configuration, enabling better decision-making
+# around governance, segmentation, and cloud architecture optimization.
+
+# Notes:
+# Ensure you're logged into Azure before running this script
+# Run Connect-AzAccount if not already authenticated
 
 $OutputDir = "C:\AzureNetworkReport"
 $ZipPath = "$OutputDir\AzureNetworkReport.zip"

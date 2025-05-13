@@ -1,7 +1,9 @@
 # Azure RBAC Privileged Roles Audit Script
+# Author: Ian Hanley 
+#
+# Description:
 #
 # This script is a purpose-built PowerShell tool that identifies and reports on privileged role assignments within an Azure environment.
-#
 # It scans the selected subscription for users, groups, and service principals assigned elevated Azure Role-Based Access Control (RBAC) roles such as Owner,
 # Contributor, and Security Admin across all scopes.
 #
