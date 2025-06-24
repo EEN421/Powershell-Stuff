@@ -1,4 +1,4 @@
-# Run Connect-AzAccount to connect to your tenant before you run this!
+# Run Connect-AzureAd to connect to your tenant before you run this!
 
 $MIGuid = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" #<-- Insert your Managed ID
 $MI = Get-AzureADServicePrincipal -ObjectId $MIGuid
