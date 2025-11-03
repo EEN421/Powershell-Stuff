@@ -20,9 +20,6 @@
   Switch. If set, the script will NOT attempt to connect automatically and will fail if no context exists.
 
 .EXAMPLE
-  .\EOLAutomated.ps1
-
-.INSTRUCTIONS
 1. Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
 2. Install-Module Microsoft.Graph -Scope CurrentUser -AllowClobber
 3. Connect-MgGraph -Scopes 'ThreatHunting.Read.All'
