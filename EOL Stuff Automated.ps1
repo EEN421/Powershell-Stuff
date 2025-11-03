@@ -21,6 +21,12 @@
 
 .EXAMPLE
   .\EOLAutomated.ps1
+
+.INSTRUCTIONS
+1. Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
+2. Install-Module Microsoft.Graph -Scope CurrentUser -AllowClobber
+3. Connect-MgGraph -Scopes 'ThreatHunting.Read.All'
+4. .\EOLAutomated.ps1 -OutputPath 'C:\Temp\EndOfSupport_DeviceSummary.csv'
 #>
 
 [CmdletBinding()]
