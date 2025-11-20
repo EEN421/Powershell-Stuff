@@ -12,10 +12,13 @@
 #
 # By surfacing privileged role assignments in a clear, actionable format, this tool enhances your ability to monitor, review,
 # and remediate access risks in alignment with Zero Trust and Microsoft security best practices.
-
+#
 # Notes:
 # Ensure you're logged into Azure before running this script
 # Run Connect-AzAccount if not already authenticated
+# Requires Az.Resources version that includes:
+#   Get-AzRoleAssignmentScheduleInstance
+#   Get-AzRoleEligibilityScheduleInstance
 
 # Parameters
 param(
@@ -113,6 +116,77 @@ catch {
     exit
 }
 
+# ---------------------------------------------
+# PIM lookup: pre-load schedule instances
+# ---------------------------------------------
+Write-Host "Loading PIM schedule instances for subscription..." -ForegroundColor Yellow
+
+$pimLookupAvailable = $true
+$activePimIndex    = @{}
+$eligiblePimIndex  = @{}
+
+try {
+    # Subscription-level scope (includes children)
+    $subscriptionScopePath = "/subscriptions/$SubscriptionId"
+
+    # Active PIM assignment schedule instances
+    $activePimInstances = Get-AzRoleAssignmentScheduleInstance -Scope $subscriptionScopePath -ErrorAction Stop
+    foreach ($inst in $activePimInstances) {
+        # Expect properties: Scope, PrincipalId, RoleDefinitionId, Status
+        $key = "$($inst.Scope)|$($inst.PrincipalId)|$($inst.RoleDefinitionId)"
+        $activePimIndex[$key] = $inst
+    }
+
+    # Eligible PIM schedule instances
+    $eligiblePimInstances = Get-AzRoleEligibilityScheduleInstance -Scope $subscriptionScopePath -ErrorAction Stop
+    foreach ($inst in $eligiblePimInstances) {
+        # Expect properties: Scope, PrincipalId, RoleDefinitionId, Status
+        $key = "$($inst.Scope)|$($inst.PrincipalId)|$($inst.RoleDefinitionId)"
+        $eligiblePimIndex[$key] = $inst
+    }
+
+    Write-Host "PIM lookup loaded: $($activePimIndex.Count) active instances, $($eligiblePimIndex.Count) eligible instances." -ForegroundColor Green
+}
+catch {
+    Write-Warning "PIM lookup failed or PIM not enabled for Azure resources. IsPIM will be reported as 'Unknown'. Error: $_"
+    $pimLookupAvailable = $false
+}
+
+function Get-PimStatusForAssignment {
+    param(
+        [Parameter(Mandatory = $true)][string]$Scope,
+        [Parameter(Mandatory = $true)][string]$PrincipalId,
+        [Parameter(Mandatory = $true)][string]$RoleDefinitionId
+    )
+
+    if (-not $pimLookupAvailable) {
+        return "Unknown"
+    }
+
+    if ([string]::IsNullOrEmpty($Scope) -or
+        [string]::IsNullOrEmpty($PrincipalId) -or
+        [string]::IsNullOrEmpty($RoleDefinitionId)) {
+        return "Unknown"
+    }
+
+    $key = "$Scope|$PrincipalId|$RoleDefinitionId"
+
+    if ($activePimIndex.ContainsKey($key)) {
+        $status = $activePimIndex[$key].Status
+        if ([string]::IsNullOrEmpty($status)) { $status = "Active" }
+        return "Active (PIM - $status)"
+    }
+
+    if ($eligiblePimIndex.ContainsKey($key)) {
+        $status = $eligiblePimIndex[$key].Status
+        if ([string]::IsNullOrEmpty($status)) { $status = "Eligible" }
+        return "Eligible (PIM - $status)"
+    }
+
+    # No PIM schedule found for this principal/role/scope
+    return "Direct (non-PIM)"
+}
+
 # Get subscription-level role assignments
 Write-ProgressHelper -Activity "Analyzing Azure RBAC" -Status "Getting subscription-level role assignments" -PercentComplete 20
 Write-Host "Getting subscription-level role assignments..." -ForegroundColor Yellow
@@ -164,20 +238,27 @@ try {
             $principalName = $assignment.DisplayName
             Write-Host "Warning: Could not resolve display name for $($assignment.ObjectId)" -ForegroundColor Yellow
         }
+
+        # Resolve PIM status for this assignment
+        $assignmentScope = $assignment.Scope
+        $roleDefinitionId = $assignment.RoleDefinitionId
+        $pimStatus = Get-PimStatusForAssignment -Scope $assignmentScope `
+                                                -PrincipalId $assignment.ObjectId `
+                                                -RoleDefinitionId $roleDefinitionId
         
         # Create result object
         $resultObject = [PSCustomObject]@{
-            SubscriptionName = $subscription.Name
-            SubscriptionId = $SubscriptionId
-            Scope = "Subscription"
+            SubscriptionName  = $subscription.Name
+            SubscriptionId    = $SubscriptionId
+            Scope             = "Subscription"
             ResourceGroupName = "N/A"
-            RoleName = $assignment.RoleDefinitionName
-            PrincipalType = $principalType
-            PrincipalId = $assignment.ObjectId
-            PrincipalName = $principalName
-            SignInName = $assignment.SignInName
-            AssignmentId = $assignment.RoleAssignmentId
-            IsPIM = "Unknown" # Would require additional PIM API calls to determine
+            RoleName          = $assignment.RoleDefinitionName
+            PrincipalType     = $principalType
+            PrincipalId       = $assignment.ObjectId
+            PrincipalName     = $principalName
+            SignInName        = $assignment.SignInName
+            AssignmentId      = $assignment.RoleAssignmentId
+            IsPIM             = $pimStatus
         }
         
         $results += $resultObject
@@ -250,20 +331,27 @@ if ($IncludeResourceGroups) {
                 catch {
                     $principalName = $assignment.DisplayName
                 }
+
+                # Resolve PIM status for this assignment
+                $assignmentScope = $assignment.Scope
+                $roleDefinitionId = $assignment.RoleDefinitionId
+                $pimStatus = Get-PimStatusForAssignment -Scope $assignmentScope `
+                                                        -PrincipalId $assignment.ObjectId `
+                                                        -RoleDefinitionId $roleDefinitionId
                 
                 # Create result object
                 $resultObject = [PSCustomObject]@{
-                    SubscriptionName = $subscription.Name
-                    SubscriptionId = $SubscriptionId
-                    Scope = "Resource Group"
+                    SubscriptionName  = $subscription.Name
+                    SubscriptionId    = $SubscriptionId
+                    Scope             = "Resource Group"
                     ResourceGroupName = $rg.ResourceGroupName
-                    RoleName = $assignment.RoleDefinitionName
-                    PrincipalType = $principalType
-                    PrincipalId = $assignment.ObjectId
-                    PrincipalName = $principalName
-                    SignInName = $assignment.SignInName
-                    AssignmentId = $assignment.RoleAssignmentId
-                    IsPIM = "Unknown" # Would require additional PIM API calls to determine
+                    RoleName          = $assignment.RoleDefinitionName
+                    PrincipalType     = $principalType
+                    PrincipalId       = $assignment.ObjectId
+                    PrincipalName     = $principalName
+                    SignInName        = $assignment.SignInName
+                    AssignmentId      = $assignment.RoleAssignmentId
+                    IsPIM             = $pimStatus
                 }
                 
                 $results += $resultObject
@@ -425,6 +513,7 @@ if ($results.Count -gt 0) {
                 <th>Principal Type</th>
                 <th>Principal Name</th>
                 <th>Sign-In Name</th>
+                <th>PIM Status</th>
             </tr>
 "@
             foreach ($result in $results) {
@@ -441,6 +530,7 @@ if ($results.Count -gt 0) {
                 <td>$($result.PrincipalType)</td>
                 <td>$($result.PrincipalName)</td>
                 <td>$($result.SignInName)</td>
+                <td>$($result.IsPIM)</td>
             </tr>
 "@
             }
